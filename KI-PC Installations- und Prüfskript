@@ -1,0 +1,153 @@
+#!/bin/bash
+
+# KI-PC Installations- und Prüfskript
+# Dieses Skript prüft die vorhandenen KI-Komponenten, Festplatten und Hardwareeignung
+# und installiert fehlende Software für Ihr KI-Projekt.
+
+set -e  # Beende das Skript bei Fehlern
+clear
+
+echo "====================================================================="
+echo "          KI-PC INSTALLATIONS- UND PRÜFSKRIPT                        "
+echo "====================================================================="
+echo "Dieses Skript prüft Ihr System auf vorhandene KI-Komponenten und"
+echo "installiert fehlende Software. Es wird auch die Festplattenstruktur"
+echo "und Hardwareeignung für KI-Anwendungen analysieren."
+echo
+read -p "Möchten Sie fortfahren? (j/n): " confirm
+if [[ "$confirm" != "j" ]]; then
+    echo "Installation abgebrochen."
+    exit 0
+fi
+
+# Funktion: Systemprüfung
+function system_check() {
+    echo -e "\n[1/6] Systemprüfung gestartet..."
+    
+    # CPU-Check
+    echo "Prüfe CPU..."
+    cpu_info=$(lscpu | grep "Model name" | awk -F: '{print $2}' | xargs)
+    echo " - CPU: $cpu_info"
+    
+    # GPU-Check
+    echo "Prüfe GPU..."
+    if lspci | grep -i nvidia > /dev/null; then
+        echo " - NVIDIA GPU erkannt."
+        gpu_type="nvidia"
+    elif lspci | grep -i amd > /dev/null; then
+        echo " - AMD GPU erkannt."
+        gpu_type="amd"
+    else
+        echo " - Keine dedizierte GPU erkannt. KI-Anwendungen könnten eingeschränkt sein."
+        gpu_type="none"
+    fi
+    
+    # RAM-Check
+    echo "Prüfe RAM..."
+    ram_total=$(free -h | awk '/^Mem/ {print $2}')
+    echo " - Verfügbarer RAM: $ram_total"
+    
+    # Festplattenprüfung
+    echo "Prüfe Festplatten..."
+    disks=$(lsblk -o NAME,SIZE,MOUNTPOINT | grep -E 'sd|nvme')
+    echo " - Gefundene Festplatten:"
+    echo "$disks"
+    
+    # Prüfung auf spezifische Mountpoints
+    if mount | grep "/mnt/KI_Studio" > /dev/null; then
+        echo " - KI_Studio-Festplatte ist gemountet."
+    else
+        echo " - KI_Studio-Festplatte nicht gefunden. Bitte prüfen Sie die Konfiguration."
+    fi
+}
+
+# Funktion: Installation von KI-Komponenten
+function install_ki_components() {
+    echo -e "\n[2/6] Installation von KI-Komponenten..."
+    
+    # Systemaktualisierung
+    echo "Führe Systemaktualisierung durch..."
+    sudo apt update
+    sudo apt upgrade -y
+    
+    # Installation von Grundpaketen
+    echo "Installiere Grundpakete..."
+    sudo apt install -y build-essential git cmake curl wget python3-pip python3-venv \
+        libopenblas-dev liblapack-dev ffmpeg libsm6 libxext6 libgl1 htop neofetch
+    
+    # GPU-spezifische Installation
+    if [[ "$gpu_type" == "nvidia" ]]; then
+        echo "Installiere NVIDIA-Treiber und CUDA..."
+        sudo apt install -y nvidia-driver-545 nvidia-cuda-toolkit
+    elif [[ "$gpu_type" == "amd" ]]; then
+        echo "Installiere AMD ROCm..."
+        wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
+        echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/rocm.list
+        sudo apt update
+        sudo apt install -y rocm-dev rocm-libs
+    fi
+    
+    # Python-Umgebung erstellen
+    echo "Erstelle Python-Umgebung..."
+    mkdir -p ~/ki-assistant
+    cd ~/ki-assistant
+    python3 -m venv venv
+    source venv/bin/activate
+    
+    # Installation von KI-Frameworks
+    echo "Installiere KI-Frameworks..."
+    pip install --upgrade pip
+    pip install numpy pandas scikit-learn matplotlib ipython jupyter
+    pip install transformers datasets accelerate diffusers opencv-python onnx optimum
+    
+    # GPU-spezifische Frameworks
+    if [[ "$gpu_type" == "nvidia" ]]; then
+        pip install tensorflow-gpu torch torchvision torchaudio
+    elif [[ "$gpu_type" == "amd" ]]; then
+        pip install tensorflow-rocm torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.6
+    fi
+}
+
+# Funktion: Prüfung auf vorhandene KI-Modelle
+function check_ki_models() {
+    echo -e "\n[3/6] Prüfung auf vorhandene KI-Modelle..."
+    model_dir=~/ki-assistant/models
+    if [[ -d "$model_dir" ]]; then
+        echo " - Modelle gefunden im Verzeichnis: $model_dir"
+        ls "$model_dir"
+    else
+        echo " - Keine Modelle gefunden. Erstelle Verzeichnis..."
+        mkdir -p "$model_dir"
+    fi
+}
+
+# Funktion: Sicherheitstools installieren
+function install_security_tools() {
+    echo -e "\n[4/6] Installation von Sicherheitstools..."
+    sudo apt install -y ufw fail2ban apparmor apparmor-utils firejail
+    sudo ufw enable
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+    sudo ufw allow ssh
+}
+
+# Funktion: Abschluss und Zusammenfassung
+function summary() {
+    echo -e "\n[5/6] Zusammenfassung der Installation und Prüfung:"
+    echo " - CPU: $cpu_info"
+    echo " - GPU: $gpu_type"
+    echo " - RAM: $ram_total"
+    echo " - Festplatten:"
+    echo "$disks"
+    echo " - KI-Frameworks und Sicherheitstools erfolgreich installiert."
+    echo " - Modelle können im Verzeichnis ~/ki-assistant/models hinzugefügt werden."
+}
+
+# Hauptprogramm
+system_check
+install_ki_components
+check_ki_models
+install_security_tools
+summary
+
+echo -e "\n[6/6] Installation abgeschlossen! Ihr KI-System ist bereit."
