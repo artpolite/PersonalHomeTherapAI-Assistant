@@ -1,0 +1,8 @@
+{
+  "KI_Studio_Element": "KI_Studio_OS_Status",
+  "KI_Studio_Status": "initialisiert",
+  "KI_Studio_Kanonische_Quelle": "/mnt/KI_Studio/KI_Studio_OS_Home",
+  "KI_Studio_Host_Anker": "/home/artpolite/.KI_Studio_Home",
+  "KI_Studio_Letzte_Aktualisierung": "2026-08-26T21:55:15+0200",
+  "KI_Studio_Hinweis": "Kanonische OS-Brücke auf /mnt, Host-Anker in ~/.KI_Studio_Home"
+}

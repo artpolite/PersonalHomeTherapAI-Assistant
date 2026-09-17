@@ -1,0 +1,5 @@
+# KI_Studio_OS_Profile_Vorlage.manifest
+# Eine Zeile = ein Ubuntu-Paket
+# Leere Zeilen und Zeilen mit # werden ignoriert
+
+# beispielpaket
